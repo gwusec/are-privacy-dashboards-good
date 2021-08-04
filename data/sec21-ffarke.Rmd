@@ -1,0 +1,385 @@
+---
+title: "My Activity Study"
+author: "Florian M. Farke"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggfittext)
+library(ggalluvial)
+
+library(MASS)
+
+# Factor level definition of the categorical data
+factorLevels <- list(
+  #############################################################################
+  accountAge = c("More than five years", "Five years", "Three years", "One year", "Less than a year", "Unsure", "I do not have a Gmail address"),
+  age = c("18 - 24", "25 - 34", "35 - 44", "45 - 54", "55 - 64", "65 or older", "Prefer not to disclose"),
+  agreement = c("Strongly disagree", "Disagree", "Neither agree nor disagree", "Agree", "Strongly agree"),
+  agreementIUIPC = c("Strongly disagree", "Somewhat disagree", "Disagree", "Neither agree nor disagree", "Somewhat agree", "Agree", "Strongly agree"),
+  appropriateness = c("Absolutely inappropriate", "Inappropriate", "Slightly inappropriate", "Neutral", "Slightly appropriate", "Appropriate", "Absolutely appropriate"),
+  autoDelete = c("No change", "Delete immediately", "Delete after 3 months", "Delete after 18 months", "Never delete"),
+  awareness = c("Not at all aware", "Slightly aware", "Somewhat aware", "Moderately aware", "Extremely aware"),
+  background = c("I have an education in, or work in, the field of computer science, computer engineering or IT.", "I do not have an education in, nor do I work in, the field of computer science, computer engineering or IT.", "Prefer not to disclose"),
+  benefit = c("Not at all beneficial", "Slightly beneficial", "Somewhat beneficial", "Moderately beneficial", "Extremely beneficial"),
+  concern = c("Not at all concerned", "Slightly concerned", "Somewhat concerned", "Moderately concerned", "Extremely concerned"),
+  education = c("No schooling completed", "Some high school, no diploma", "High school graduate, diploma, or equivalent (e.g., GED, Abitur, baccalaureat)", "Some college credit, no degree", "Trade / technical / vocational training", "Associate degree", "Bachelor's degree", "Master's degree", "Professional degree (e.g., J.D., M.D.)", "Doctorate degree", "Prefer not to disclose"),
+  experience = c("Greatly harms my experience", "Harms my experience", "Slightly harms my experience", "Does not change my experience", "Slightly improves my experience", "Improves my experience", "Greatly improves my experience"),
+  frequency = c("Never", "Rarely", "Sometimes", "Often", "Always"),
+  gender = c("Woman", "Man", "Non-binary", "Prefer not to disclose"),
+  googleProducts = c("Android", "Gmail", "Google Chrome", "Google Drive", "Google Maps", "Google News", "Google Pay", "Google Play Store", "Google Search", "YouTube", "none"),
+  harm = c("Not at all harmful", "Slightly harmful", "Somewhat harmful", "Moderately harmful", "Extremely harmful"),
+  importance = c("Not important", "Slightly important", "Moderately important", "Important", "Very important"),
+  pauseCollection = c("Google no longer collects activity data about me", "Google still collects activity data about me, but does not associate it with my account", "Google still collects activity data about me and still associates it with my account, but simply does not display it on the My Activity page."),
+  whenDelete = c("Immediately, I do not want this data to be collected", "After a few hours", "After a day", "After a week", "After a month", "After 3 months", "After 18 months", "I wouldn't delete"),
+  yesNoUnsure = c("Yes", "No", "Unsure")
+  #############################################################################
+)
+
+
+# Look up table of questions to use them in plots
+questions <- list(
+  #############################################################################
+  # Pre Survey
+  "S1" = "Do you have a personal Gmail address (an email address ending in \"gmail.com\")?",
+  "S2" = "How long have you had that Gmail address?",
+  "S3" = "Which Google products do you currently use?",
+  "S4" = "How frequently do you use these products?",
+  "S5" = "How important is using Google products to your Internet experience?",
+  "IUIPC1" = "Consumer online privacy is really a matter of consumers' right to exercise control and autonomy over decisions about how their information is collected, used, and shared.",
+  "IUIPC2" = "Consumer control of personal information lies at the heart of consumer privacy.",
+  "IUIPC3" = "I believe that online privacy is invaded when control is lost or unwillingly reduced as a result of a marketing transaction.",
+  "IUIPC4" = "Companies seeking information online should disclose the way the data are collected, processed, and used.",
+  "IUIPC5" = "A good consumer online privacy policy should have a clear and conspicuous disclosure.",
+  "IUIPC6" = "It is very important to me that I am aware and knowledgeable about how my personal information will be used.",
+  "IUIPC7" = "It usually bothers me when online companies ask me for personal information.",
+  "IUIPC8" = "When online companies ask me for personal information, I sometimes think twice before providing it.",
+  "IUIPC9" = "It bothers me to give personal information to so many online companies.",
+  "IUIPC10" = "I'm concerned that online companies are collecting too much personal information about me.",
+  # Main Survey
+  "Q1" = "How aware are you of the amount of information that Google is collecting about your activities online?",
+  "Q2" = "How concerned are you with the amount of information Google is collecting about your activities online?",
+  "Q2_A" = "Please explain why.",
+  "Q3" = "How often do you benefit from the amount of information that Google collects about your activities online?",
+  "Q3_A" = "Please explain why.",
+  "Q4" = "Do you have any strategies for managing the kind of information Google may collect about you?",
+  "Q5" = "Please provide any immediate reactions you have to exploring the My Activity page.",
+  "Q6" = "Have you visited the My Activity page prior to this study?",
+  "Q7" = "Provide three purposes for which you think Google is using your activity data.",
+  "Q7_A" = "Based on your answer before, do you believe Google's purposes for using this information is beneficial to you in any way?",
+  "Q7_B" = "Based on your answer before, do you believe Google's purposes for using this information is harmful to you in any way?",
+  "Q8" = "Are there any other concerns you might have with Google collecting this information?",
+  "Q9" = "Do you believe your experience using Google services is improved by Google collecting this information?",
+  "Q10" = "Do you recall this activity?",
+  "Q11" = "Prior to seeing this activity, have you been aware that Google stored this activity?",
+  "Q12" = "Storing this activity is necessary for my experience with using Google Service.",
+  "Q13" = "Storing this activity changes my experience with using Google Service in the following way:",
+  "Q14" = "If you were to change how long this activity is stored, when would you want it to be deleted?",
+  "Q15" = "Describe two feelings you had after viewing the activities we showed you.",
+  "Q16" = "How much would you be willing to pay per month?",
+  "Q17" = "Do you think this is an appropriate reason to store your Google Web activity?",
+  "Q18" = "Do you think this is an appropriate reason to store your YouTube activity?",
+  "Q19" = "Do you think this is an appropriate reason to store your Google Maps activity?",
+  "Q20" = "Would you like to change how long your activities are stored?",
+  "Q20_A" = "Please explain if and why you would like to change how long your activities are stored?",
+  "Q21" = "Google provides a way for you to pause collection of activity data, what do you believe happens when you pause activity data collection?",
+  "Q22" = "Do you think My Activity helps you to better understand what data Google collects about you?",
+  "Q22_A" = "Please explain why.",
+  "Q23" = "After completing this survey, do you see yourself changing any setting in your My Activity page?",
+  "Q23_A" = "Which setting, if any, would you change?",
+  "Q24" = "In a month, do you see yourself reviewing and/or deleting activities in your My Activity?",
+  "Q24_A" = "Which kinds of activities, if any, would you review and/or delete?",
+  "Q25" = "Now that you have explored My Activity, do you plan using Google products differently in the future?",
+  "Q25_A" = "What would you change and why?",
+  "Q25_B" = "Why would you not change using Google products?",
+  "Q25_C" = "Why are you unsure if you would change using Google products?",
+  "Q26" = "How concerned are you with the amount of information Google is collecting about your activities online?",
+  "Q26_A" = "Please explain why.",
+  "Q27" = "How often do you benefit from the amount of information that Google collects about your activities online?",
+  "Q27_A" = "Please explain why.",
+  "D1" = "What is your gender?",
+  "D2" = "What is your age?",
+  "D3" = "What is the highest degree or level of school you have completed?",
+  "D4" = "Which of the following best describes your educational background or job field?"
+  #############################################################################
+)
+
+# Read survey responses from csv to data frame and set up categorical data
+surveyData <- read.csv("sec21-ffarke.csv", header = TRUE, sep = ",", encoding="UTF-8") %>%
+  mutate(
+    # Convert all "yes, no, (unsure)" variables to R factors
+    across(c(all_of(c("S1", "Q6", "Q23", "Q24", "Q25")), starts_with(c("Q10", "Q11"))), ordered, levels = factorLevels$yesNoUnsure),
+    # Convert self-reported account age variable to R factor
+    S2 = ordered(S2, levels = factorLevels$accountAge),
+    # Convert all "frequency" variables to R factors
+    across(c(starts_with("S4"), all_of(c("Q3", "Q27"))), ordered, levels = factorLevels$frequency),
+    # Convert Google account importance variable to R factors
+    S5 = ordered(S5, levels = factorLevels$importance),
+    # Convert all "IUIPC" variables to R factors
+    across(starts_with("IUIPC"), ordered, levels = factorLevels$agreementIUIPC),
+    # Convert the "level of awareness" variable to R factor
+    Q1 = ordered(Q1, levels = factorLevels$awareness),
+    # Convert all level of concern variables to R factors
+    across(all_of(c("Q2", "Q26")), ordered, levels = factorLevels$concern),
+    # Convert all level of benefit variables to R factors
+    across(starts_with("Q7_A"), ordered, levels = factorLevels$benefit),
+    # Convert all level of harm variables to R factors
+    across(starts_with("Q7_B"), ordered, levels = factorLevels$harm),
+    # Convert all level of agreement variables to R factors
+    across(c(all_of(c("Q9", "Q22")), starts_with("Q12")), ordered, levels = factorLevels$agreement),
+    # Convert all level of experience variables to R factors
+    across(starts_with("Q13"), ordered, levels = factorLevels$experience),
+    # Convert all "when to delete" variables to R factors
+    across(starts_with("Q14"), ordered, levels = factorLevels$whenDelete),
+    # Convert all level of appropriateness variables to R factors
+    across(all_of(c("Q17", "Q18", "Q19")), ordered, levels = factorLevels$appropriateness),
+    # Convert all "auto delete" variables to R factors
+    across(matches("^Q20_[a-z]+"), ordered, levels = factorLevels$autoDelete),
+    # Convert "what happens when you pause data collection" variable to R factor
+    Q21 = ordered(Q21, levels = factorLevels$pauseCollection),
+    # Convert all demographic variables to R factors
+    D1 = fct_explicit_na(factor(D1, levels = factorLevels$gender), na_level = "Prefer not to disclose"),
+    D2 = fct_explicit_na(ordered(D2, levels = factorLevels$age), na_level = "Prefer not to disclose"),
+    D3 = fct_explicit_na(ordered(D3, levels = factorLevels$education), na_level = "Prefer not to disclose"),
+    D4 = fct_explicit_na(ordered(D4, levels = factorLevels$background), na_level = "Prefer not to disclose")
+  )
+
+
+# Dataframe containing some aggregated variables for use in the regression analysis
+regressionData <- surveyData %>%
+  rowwise() %>%
+  mutate(
+    # Aggregate the variables IUIPC1 to IUIPC3 to form the "control factor"
+    iuipc.control = mean(as.numeric(c_across(IUIPC1:IUIPC3))),
+    # Aggregate the variables IUIPC4 to IUIPC6 to form the "awareness factor"
+    iuipc.awareness = mean(as.numeric(c_across(IUIPC4:IUIPC6))),
+    # Aggregate the variables IUIPC7 to IUIPC10 to form the "collection factor"
+    iuipc.collection = mean(as.numeric(c_across(IUIPC7:IUIPC10))),
+  ) %>%
+  ungroup() %>%
+  mutate(
+    Q2.extremly_concerned = Q2 == "Extremely concerned",
+    Q2.moderately_concerned = Q2 == "Moderately concerned",
+    Q2.somewhat_concerned = Q2 == "Somewhat concerned",
+    Q2.slightly_concerned = Q2 == "Slightly concerned",
+    
+    Q3.often = Q3 == "Often",
+    Q3.sometimes = Q3 == "Sometimes",
+    Q3.rarely = Q3 == "Rarely",
+    Q3.never = Q3 == "Never",
+    
+    Q26.minus.Q2.greater.0 = (as.numeric(Q26) - as.numeric(Q2)) > 0,
+    Q27.minus.Q3.greater.0 = (as.numeric(Q27) - as.numeric(Q3)) > 0,
+    Q6.yes = Q6 == "Yes",
+    iuipc.control.greater.3.5 = iuipc.control > 3.5,
+    iuipc.awareness.greater.3.5 = iuipc.awareness > 3.5,
+    iuipc.collection.greater.3.5 = iuipc.collection > 3.5,
+    D1.man = D1 == "Man",
+    D2.in.18.to.34 = D2 %in% c("18 - 24", "25 - 34"),
+    D2.in.35.to.54 = D2 %in% c("35 - 44", "45 - 54"),
+    D3.high_school.or.below = D3 %in% c("No schooling completed", "Some high school, no diploma", "High school graduate, diploma, or equivalent (e.g., GED, Abitur, baccalaureat)"),
+    D3.some_college = D3 %in% c("Some college credit, no degree", "Trade / technical / vocational training", "Associate degree", "Professional degree (e.g., J.D., M.D.)"),
+    
+    D4.technical_background = D4 == "I have an education in, or work in, the field of computer science, computer engineering or IT.",
+    activities_total.greater.median = activities_total > median(activities_total)
+  )
+```
+
+
+# Plots
+
+## Level of Concern - Pre-Exposure vs. Post-Exposure
+
+```{r concern_bar_plot, echo=FALSE}
+surveyData %>%
+  transmute("Pre-Exposure Concern" = Q2, "Post-Exposure Concern" = Q26) %>%
+  pivot_longer(everything(), names_to = "Time", values_to = "Responses") %>%
+  ggplot(aes(y = Time, fill = Responses, xmin = 0, xmax = 1)) +
+    geom_bar(position = "fill", width = .6, color = "grey50") +
+    geom_fit_text(stat = "count", aes(label = ..count..), position=position_fill(), reflow = TRUE, contrast = TRUE, show.legend = FALSE) +
+    scale_x_continuous(labels = scales::percent) +
+    scale_y_discrete() +
+    scale_fill_brewer(palette = "RdYlBu", direction = -1) +
+    guides(fill = guide_legend(reverse = TRUE, nrow = 2, byrow = TRUE)) +
+    labs("title" = str_wrap(questions[["Q2"]], 85)) +
+    theme_minimal() +
+    theme(
+      plot.title.position = "plot",
+      axis.title = element_blank(),
+      legend.title = element_blank(),
+      legend.position = "bottom",
+      legend.justification = c("center", "top"),
+      panel.grid.major.y = element_blank()
+    )
+```
+
+```{r concern_alluvium_plot, echo=FALSE}
+surveyData %>%
+  # Group the columns to get all combinations of factor levels
+  group_by(fct_rev(Q2), fct_rev(Q26)) %>%
+  # Count frequency of each combination
+  summarise(y = n(), .groups = "keep") %>%
+  # Assign id to each combination
+  rowid_to_column("alluvium") %>%
+  # Convert to "long" format
+  pivot_longer(-c("y", "alluvium"), names_to = "x", names_transform = list("x" = as.factor),  values_to = "stratum", values_transform = list("stratum" = fct_rev)) %>%
+  ggplot(aes(x = x, y = y, stratum = stratum, alluvium = alluvium, fill = stratum, label = stratum)) +
+    geom_flow(alpha = 1, width = .25, color = "grey50") +
+    geom_stratum(alpha = 1, width = .25, color = "grey50") +
+    geom_fit_text(aes(label = str_remove(as.character(stratum), " concerned")), stat = "stratum", width = .25, reflow = TRUE, contrast = TRUE, outside = TRUE) +
+    scale_x_discrete(expand = expansion(add = 0.15), labels = str_wrap(c("Pre-Exposure Concern", "Post-Exposure Concern"), 13)) +
+    scale_fill_brewer(palette = "RdYlBu", direction = -1) +
+    theme_minimal() +
+    theme(
+      plot.title.position = "plot",
+      legend.position = "none",
+      axis.title.x = element_blank()
+    ) +
+    labs(
+      "title" = str_wrap(questions[["Q2"]], 85),
+      x = "Concern",
+      y = "Participants"
+    )
+```
+
+
+## Frequency of Benefit - Pre-Exposure vs. Post-Exposure
+
+```{r benefit_bar_plot, echo=FALSE}
+surveyData %>%
+  transmute("Pre-Exposure Benefit" = Q3, "Post-Exposure Benefit" = Q27) %>%
+  pivot_longer(everything(), names_to = "Time", values_to = "Responses") %>%
+  ggplot(aes(y = Time, fill = Responses, xmin = 0, xmax = 1)) +
+    geom_bar(position = "fill", width = .6, color = "grey50") +
+    geom_fit_text(stat = "count", aes(label = ..count..), position=position_fill(), reflow = TRUE, contrast = TRUE, show.legend = FALSE) +
+    scale_x_continuous(labels = scales::percent) +
+    scale_y_discrete() +
+    scale_fill_brewer(palette = "RdYlBu") +
+    guides(fill = guide_legend(reverse = TRUE, nrow = 2, byrow = TRUE)) +
+    labs("title" = str_wrap(questions[["Q3"]], 85)) +
+    theme_minimal() +
+    theme(
+      plot.title.position = "plot",
+      axis.title = element_blank(),
+      legend.title = element_blank(),
+      legend.position = "bottom",
+      legend.justification = c("center", "top"),
+      panel.grid.major.y = element_blank()
+    )
+```
+
+```{r benefit_alluvium_plot, echo=FALSE}
+surveyData %>%
+  # Group the columns to get all combinations of factor levels
+  group_by(fct_rev(Q3), fct_rev(Q27)) %>%
+  # Count frequency of each combination
+  summarise(y = n(), .groups = "keep") %>%
+  # Assign id to each combination
+  rowid_to_column("alluvium") %>%
+  # Convert to "long" format
+  pivot_longer(-c("y", "alluvium"), names_to = "x", names_transform = list("x" = as.factor),  values_to = "stratum", values_transform = list("stratum" = fct_rev)) %>%
+  ggplot(aes(x = x, y = y, stratum = stratum, alluvium = alluvium, fill = stratum, label = stratum)) +
+    geom_flow(alpha = 1, width = .25, color = "grey50") +
+    geom_stratum(alpha = 1, width = .25, color = "grey50") +
+    geom_fit_text(aes(label = str_remove(as.character(stratum), " concerned")), stat = "stratum", width = .25, reflow = TRUE, contrast = TRUE, outside = TRUE) +
+    scale_x_discrete(expand = expansion(add = 0.15), labels = str_wrap(c("Pre-Exposure Benefit", "Post-Exposure Benefit"), 13)) +
+    scale_fill_brewer(palette = "RdYlBu") +
+    theme_minimal() +
+    theme(
+      plot.title.position = "plot",
+      legend.position = "none",
+      axis.title.x = element_blank()
+    ) +
+    labs(
+      "title" = str_wrap(questions[["Q3"]], 85),
+      x = "Benefit",
+      y = "Participants"
+    )
+```
+
+##
+
+```{r Q17_Q18_Q19_bar_plot, echo=FALSE}
+surveyData %>%
+  pivot_longer(c(Q17, Q18, Q19),
+               names_to = "category",
+               names_transform = list("category" = ~ ordered(.x, levels = c("Q17", "Q18", "Q19"), labels = c("Web activities", "YouTube activities", "Maps activities"))),
+               values_to = "responses"
+  ) %>%
+  ggplot(aes(y = category, fill = responses, xmin = 0, xmax = 1)) +
+  geom_bar(position = position_fill(reverse = TRUE), width = .6, color = "grey50") +
+  geom_fit_text(stat = "count", aes(label = ..count..), position=position_fill(reverse = TRUE), reflow = TRUE, contrast = TRUE, show.legend = FALSE) +
+  scale_x_continuous(expand = expansion(add = c(0, 0.05)), labels = scales::percent) +
+  scale_y_discrete(limits = rev) +
+  scale_fill_brewer(palette = "BrBG") +
+  guides(fill = guide_legend(nrow = 3, byrow = TRUE)) +
+  theme_minimal() +
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_blank(),
+    axis.title = element_blank(),
+    axis.line.y = element_line(color = "grey50"),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    legend.justification = c("center", "top"),
+    legend.box.margin = margin(),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+
+# Regression Analysis
+
+## Level of concern after visting My Activity page (Ordinal Logistic Regression)
+
+```{r post_concern_polr, echo=FALSE}
+postConcernPolr <- polr(Q26 ~
+                        Q2.extremly_concerned +
+                        Q2.moderately_concerned +
+                        Q2.somewhat_concerned +
+                        Q2.slightly_concerned +
+                        Q27.minus.Q3.greater.0 +
+                        Q6.yes +
+                        iuipc.control.greater.3.5 +
+                        iuipc.awareness.greater.3.5 +
+                        iuipc.collection.greater.3.5 +
+                        D1.man +
+                        D2.in.18.to.34 +
+                        D2.in.35.to.54 +
+                        D3.high_school.or.below + 
+                        D3.some_college +
+                        D4.technical_background +
+                        activities_total.greater.median
+                      , data=regressionData, method = "logistic", Hess = TRUE
+)
+
+summary(postConcernPolr)
+```
+
+
+## Frequency of benefit after visting My Activity page (Ordinal Logistic Regression)
+
+```{r post_benefit_polr, echo=FALSE}
+postBenefitPolr <- polr(fct_rev(Q27) ~
+                        Q3.never +
+                        Q3.rarely +
+                        Q3.sometimes +
+                        Q3.often +
+                        Q26.minus.Q2.greater.0 +
+                        Q6.yes +
+                        iuipc.control.greater.3.5 +
+                        iuipc.awareness.greater.3.5 +
+                        iuipc.collection.greater.3.5 +
+                        D1.man +
+                        D2.in.18.to.34 +
+                        D2.in.35.to.54 +
+                        D3.high_school.or.below + 
+                        D3.some_college +
+                        D4.technical_background +
+                        activities_total.greater.median
+                      , data=regressionData, method = "logistic", Hess = TRUE
+)
+
+summary(postBenefitPolr)
+```
